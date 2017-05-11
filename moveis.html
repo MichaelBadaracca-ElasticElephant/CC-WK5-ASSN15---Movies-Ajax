@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=<device-width>, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Movies</title>
+
+    <script src="http://code.jquery.com/jquery-3.2.1.min.js"
+            integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+            crossorigin="anonymous">
+    </script>
+</head>
+<body>
+    <script>
+        // get data from API with promises
+        
+
+        // $.get('http://159.203.175.239:9001/checkouts.txt', function(data){
+        //     console.log(data);
+        // })
+
+
+        var moviesPromise = new Promise(resolve => {
+            $.get('http://159.203.175.239:9001/movies.txt', function(data){
+                resolve(data);
+            });
+        });
+        
+        var checkoutsPromise = new Promise(resolve => {
+            $.get('http://159.203.175.239:9001/checkouts.txt', function(data){
+                resolve(data);
+            });
+        });
+        
+
+      
+        checkoutsPromise.then(function(data){
+            //console.log(data);
+            //var checkouts = parsecheckouts(data);
+            doStuff(data);
+
+            //console.log(checkouts);
+        });
+      
+        moviesPromise.then(function(data){
+            //console.log(data);
+        });
+
+        // function parsecheckouts(rawcheckoutData){
+        //     var splitcheckoutData = rawcheckoutData.split(/\s+/g);
+        //     var checkoutsArray = [];
+            
+        //     for(var i = 0; i < splitcheckoutData.length; i += 3){
+        //         // parse checkout
+        //         var checkout = {
+        //             checkoutId: splitcheckoutData[i],
+        //             checkoutMonth: splitcheckoutData[i+1],
+        //             numberOfCheckouts: splitcheckoutData[i+2]
+        //         };
+        //         checkoutsArray.push(checkout);
+
+        //         //check to see numer
+
+        //     }
+        //     return checkoutsArray;
+
+        // }
+        
+
+
+
+        // function parsecheckouts(rawCheckoutData){
+
+        //     //checkoutstuff
+        //     var splitCheckoutData = rawCheckoutData.split(/\s+/g);
+        //     var checkoutsArray = [];
+            
+        //     //most checkouts
+        //     var mostCheckouts = {};
+        //     mostCheckouts.numberOfCheckouts = 0;
+
+        //     //checkouts by month
+        //     var months = {}
+
+        //     for(var i = 0; i < splitCheckoutData.length; i += 3){
+        //         // parse checkout
+        //         var checkout = {
+        //             checkoutId: splitCheckoutData[i],
+        //             checkoutMonth: splitCheckoutData[i+1],
+        //             numberOfCheckouts: Number.parseInt(splitCheckoutData[i+2])
+        //         };
+        //         checkoutsArray.push(checkout);
+               
+        //         //check to see number of checkouts
+        //         if(checkout.numberOfCheckouts > mostCheckouts.numberOfCheckouts){
+        //             mostCheckouts = checkout;
+        //         }
+
+        //         //add checkouts to month
+        //         if(months[checkout.checkoutMonth] === undefined){
+        //             months[checkout.checkoutMonth] = 0;
+        //         }
+        //         months[checkout.checkoutMonth] += checkout.numberOfCheckouts;
+
+        //     }
+        // }
+
+
+        function doStuff(rawCheckoutData){
+                //console.log(rawCheckoutData);
+                //checkoutstuff
+                var splitCheckoutData = rawCheckoutData.split(/\s+/g);
+                var checkoutsArray = [];
+                var usersArray = [];
+                
+                //most checkouts
+                var mostCheckouts = {};
+                mostCheckouts.numberOfCheckouts = 0;
+
+                //checkouts by month
+                var months = {}
+
+                for(var i = 0; i < splitCheckoutData.length; i += 3){
+                    // parse checkout from splitcheckoutdata and push onto an array of checkouts
+                    var checkout = parseCheckout(splitCheckoutData,i)
+                    checkoutsArray.push(checkout);
+                    parseUser(usersArray, checkout);
+                    //console.log("Checkout: ", checkout);
+                    
+            }
+            console.log(usersArray);
+        }
+
+            function parseCheckout(splitCheckoutData, index){
+                //This creates a checkout object from an array of lines containing checkout information
+                //Be careful to pass the index starting at the correct place or all data will be stored in the wrong field of the object
+                
+                var checkout = {
+                        userId: splitCheckoutData[index],
+                        checkoutMonth: splitCheckoutData[index+1],
+                        movieCheckedOut: Number.parseInt(splitCheckoutData[index+2]),
+                    };
+                return checkout;
+            }
+
+            function parseUser(usersArray, checkout){
+                //NOTE: using bracket [] notation to index properties of objects to quickly look them up
+
+                //if user doesn't exist, create new user and push onto array
+                var userKey = checkout.userId.toString();
+                // console.log(checkout);
+                // console.log("movie checked out:", checkout.movieCheckedOut);
+
+
+                if(usersArray[userKey] === undefined){                    
+                    usersArray[userKey] = {
+                        userId: checkout.userId,
+                        numberOfCheckouts: 1,
+                        moviesCheckedOut: [checkout.movieCheckedOut]
+                    }
+                    //console.log("Added user: ", usersArray[userKey]);
+                }
+                //if user does exist, update user information
+                else{
+                    usersArray[userKey].numberOfCheckouts++;
+                    //add the movie to the array of movies the user checked out if it isn't already there
+                    //console.log("movies checked out:", usersArray[userKey].moviesCheckedOut);
+                    if(usersArray[userKey].moviesCheckedOut[checkout.movieCheckedOut] === undefined){
+                        usersArray[userKey].moviesCheckedOut.push(checkout.movieCheckedOut);
+                    }
+                    //console.log("Updated User: ", usersArray[userKey]);
+                }
+            }
+
+
+
+        
+
+
+
+
+
+
+
+
+        // let myFirstPromise = new Promise((resolve, reject) => {
+        //     // We call resolve(...) when what we were doing async succeeded, and reject(...) when it failed.
+        //     // In this example, we use setTimeout(...) to simulate async code. 
+        //     // In reality, you will probably be using something like XHR or an HTML5 API.
+        //     setTimeout(function(){
+        //         resolve("Success!"); // Yay! Everything went well!
+        //     }, 250);
+        // });
+
+        // myFirstPromise.then((successMessage) => {
+        //     // successMessage is whatever we passed in the resolve(...) function above.
+        //     // It doesn't have to be a string, but if it is only a succeed message, it probably will be.
+        //     console.log("Yay! " + successMessage);
+        // });
+
+
+    </script>
+</body>
+</html>
