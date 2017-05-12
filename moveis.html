@@ -13,15 +13,17 @@
 </head>
 <body>
     <script>
-        // get data from API with promises
-        var moviesPromise = new Promise(resolve => {
-            $.get('http://159.203.175.239:9001/movies.txt', function(data){
+        
+        //get checkout data from API with promise
+        var checkoutsPromise = new Promise(resolve => {
+            $.get('http://159.203.175.239:9001/checkouts.txt', function(data){
                 resolve(data);
             });
         });
-        
-        var checkoutsPromise = new Promise(resolve => {
-            $.get('http://159.203.175.239:9001/checkouts.txt', function(data){
+
+        // get movie title data from API with promise
+        var moviesPromise = new Promise(resolve => {
+            $.get('http://159.203.175.239:9001/movies.txt', function(data){
                 resolve(data);
             });
         });
@@ -30,33 +32,33 @@
             processCheckoutData(data);
         });
       
-        moviesPromise.then(function(data){
-            //console.log(data);
-        });
-
         function processCheckoutData(rawCheckoutData){
+            //Split raw data into array of checkout information split on whitespace or new line
             var splitCheckoutData = rawCheckoutData.split(/\s+/g);
             var checkoutsArray = [];
             var usersArray = [];
-            
-            //most checkouts
-            var mostCheckouts = {};
-            mostCheckouts.numberOfCheckouts = 0;
-
-            //checkouts by month
+            var moviesArray = [];
             var months = {}
 
+            //loop through checkout data and grab 3 elements at a time to build each part of a checkout object
+            //BEWARE that if the index is off, the data stored in the objects will also be off
+            //user the checkout object to populate arrays for checkouts, months, users, and movies
             for(var i = 0; i < splitCheckoutData.length; i += 3){
                 // parse checkout from splitcheckoutdata and push onto an array of checkouts
                 var checkout = parseCheckout(splitCheckoutData,i)
-                checkoutsArray.push(checkout);
                 parseUser(usersArray, checkout);
-                addCheckoutToMonth(months, checkout.checkoutMonth);
+                parseMovie(moviesArray, checkout);
+                parseMonth(months, checkout);
+                checkoutsArray.push(checkout);
             }
-            console.log("Checkouts: ", checkoutsArray);
-            console.log("Users: ", usersArray);
-            console.log("Months: ", months);
-            console.log("Month with most checkouts: ", findMonthWithMostCheckouts(months));
+
+            //Once movie title information is available, all the information needed to display results is available
+            moviesPromise.then(function(rawMovieTitlesData){
+                var movieTitlesDictionary = parseMovieTitlesDictionary(rawMovieTitlesData);
+                console.log("User with the most checkouts: ", findUserWithMostCheckouts(usersArray));
+                console.log("Month with most checkouts: ", findMonthWithMostCheckouts(months));
+                console.log("Movie with most checkouts: ", findMovieWithMostCheckouts(moviesArray, movieTitlesDictionary));
+            });
         }
 
         function findMonthWithMostCheckouts(months){
@@ -72,8 +74,48 @@
             return monthWithMostCheckouts;
         }
 
-        function addCheckoutToMonth(months,monthKey){
+        function findUserWithMostCheckouts(users){
+            //loop through users, if number of checkouts is bigger than the current max, make it the current max
+            var userWithMostCheckouts = {
+                numberOfCheckouts:0
+            };
+
+            //Ran into a strange situation with the users array
+            //It clearly has more than zero elements, however the length is shown as 0
+            //This is probably related to the fact that iti is indexed by string keys rather than number keys
+            //This is why the array is indexed by the userKey rather than a numerical index
+
+            for(var userKey in users){
+                if(users[userKey].numberOfCheckouts > userWithMostCheckouts.numberOfCheckouts){
+                    userWithMostCheckouts = users[userKey];
+                }
+            }
+            return userWithMostCheckouts.userId;
+        }
+
+        function findMovieWithMostCheckouts(movies, movieTitlesDictionary){
+            var movieWithMostCheckouts = {
+                numberOfCheckouts:0
+            };
+            //loop through each movie in the movies array. if the current movie has more checkouts than the movieWithMostCheckouts
+            //then make it the moveWithMostCheckouts
+            for(var movieKey in movies){
+                if(movies[movieKey].numberOfCheckouts > movieWithMostCheckouts.numberOfCheckouts){
+                    movieWithMostCheckouts = movies[movieKey];
+                }
+            }
+            return lookupMovieTitleById(movieTitlesDictionary,movieWithMostCheckouts.movieId);
+        }
+
+        function lookupMovieTitleById(movieTitlesDictionary, movieId){
+            //HACKY: since movie titlesDictionary is 0 indexed, if we want movie with Id 1 we get the 0 element of the array
+            return movieTitlesDictionary[movieId - 1];
+        }
+
+        function parseMonth(months,checkout){
             //add checkouts to month
+            var monthKey = checkout.checkoutMonth;
+
             if(months[monthKey] === undefined){
                 months[monthKey] = 0;
             }
@@ -97,7 +139,8 @@
             //if user doesn't exist, create new user and push onto array
             var userKey = checkout.userId.toString();
 
-            if(usersArray[userKey] === undefined){                    
+            //if the userid is not a key it may warrent adding a new user, but only if the checkout data is good with a value for a userId
+            if(usersArray[userKey] === undefined && checkout.userId !== ""){                    
                 usersArray[userKey] = {
                     userId: checkout.userId,
                     numberOfCheckouts: 1,
@@ -105,7 +148,7 @@
                 }
             }
             //if user does exist, update user information
-            else{
+            else if(checkout.userId !== ""){
                 usersArray[userKey].numberOfCheckouts++;
                 //add the movie to the array of movies the user checked out if it isn't already there
                 if(usersArray[userKey].moviesCheckedOut[checkout.movieCheckedOut] === undefined){
@@ -114,22 +157,36 @@
             }
         }
 
-        // let myFirstPromise = new Promise((resolve, reject) => {
-        //     // We call resolve(...) when what we were doing async succeeded, and reject(...) when it failed.
-        //     // In this example, we use setTimeout(...) to simulate async code. 
-        //     // In reality, you will probably be using something like XHR or an HTML5 API.
-        //     setTimeout(function(){
-        //         resolve("Success!"); // Yay! Everything went well!
-        //     }, 250);
-        // });
+        function parseMovie(moviesArray,checkout){
+            var movieKey = checkout.movieCheckedOut;
 
-        // myFirstPromise.then((successMessage) => {
-        //     // successMessage is whatever we passed in the resolve(...) function above.
-        //     // It doesn't have to be a string, but if it is only a succeed message, it probably will be.
-        //     console.log("Yay! " + successMessage);
-        // });
+            //if the movie is new to the moviesArray, add it
+            //otherwise, add to its count
+            if(moviesArray[movieKey] === undefined){
+                moviesArray[movieKey] = {
+                    movieId:checkout.movieCheckedOut,
+                    numberOfCheckouts: 1
+                };
+            }else if(moviesArray[movieKey]){
+                moviesArray[movieKey].numberOfCheckouts++;
+            }
+        }
 
+        function parseMovieTitlesDictionary(rawMovieTitlesData){
+            //get rid of first two lines of header information
+            //split on the first whitespace and take the second element, being the movie title
+            //Since ids are sequential, a movie can be looked up simply by using a numerical index
+            var splitMovieData = rawMovieTitlesData.split("\n");
+            var movieTitlesDictionary = [];
 
+            for(var movieLineCount = 2; movieLineCount < splitMovieData.length; movieLineCount++){
+                var movieDataLine = splitMovieData[movieLineCount]
+                
+                var movieTitle = movieDataLine.slice(movieDataLine.indexOf(' ') + 1);
+                movieTitlesDictionary.push(movieTitle);
+            }
+            return movieTitlesDictionary;
+        }
     </script>
 </body>
 </html>
